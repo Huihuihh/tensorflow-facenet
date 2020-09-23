@@ -10,12 +10,12 @@ import sys
 import os
 import copy
 import argparse
-import facenet
 import align.detect_face
 import random
 
 from os.path import join as pjoin
 import matplotlib.pyplot as plt
+from tensorflow.python.platform import gfile
 
 
 import sklearn
@@ -23,7 +23,6 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn import metrics  
 from sklearn.externals import joblib
-from openvino.inference_engine import IENetwork, IECore
 
 
 def main():      
@@ -33,7 +32,7 @@ def main():
             # Load the model 
             # 这里要改为自己的模型位置
             model='models/facenet.pb'
-            facenet.load_model(model)
+            load_model(model)
 
             # Get input and output tensors
             images_placeholder = tf.get_default_graph().get_tensor_by_name("input:0")
@@ -50,7 +49,7 @@ def main():
             for i in os.listdir(emb_dir):
                 all_obj.append(i)
                 img = misc.imread(os.path.join(emb_dir,i), mode='RGB')
-                prewhitened = facenet.prewhiten(img)
+                prewhitened = prewhiten(img)
                 image.append(prewhitened)
                 nrof_images=nrof_images+1
 
@@ -63,8 +62,8 @@ def main():
             #video="http://admin:admin@192.168.0.107:8081/"   #此处@后的ipv4 地址需要修改为自己的地址
             # 参数为0表示打开内置摄像头，参数是视频文件路径则打开视频
             #capture =cv2.VideoCapture(video)
-            capture =cv2.VideoCapture('/home/awcloud/Desktop/tianhui.mp4')
-            #capture =cv2.VideoCapture(0)
+            #capture =cv2.VideoCapture('/home/awcloud/Desktop/tianhui.mp4')
+            capture =cv2.VideoCapture(0)
             cv2.namedWindow("camera",1)
             timer=0
             while True:
@@ -135,11 +134,6 @@ def main():
             capture.release()
             cv2.destroyWindow("camera")
   
-
-
-        # When everything is done, release the capture
-
-
 # 创建load_and_align_data网络
 print('Creating networks and loading parameters')
 with tf.Graph().as_default():
@@ -186,7 +180,7 @@ def load_and_align_data(img, image_size, margin):
     for i in range(len(bounding_boxes)):
         temp_crop=img[det[i,1]:det[i,3],det[i,0]:det[i,2],:]
         aligned=misc.imresize(temp_crop, (image_size, image_size), interp='bilinear')
-        prewhitened = facenet.prewhiten(aligned)
+        prewhitened = prewhiten(aligned)
         crop.append(prewhitened)
 
     # np.stack 将crop由一维list变为二维
@@ -194,7 +188,32 @@ def load_and_align_data(img, image_size, margin):
 
     return 1,det,crop_image
 
+def load_model(model, input_map=None):
+    # Check if the model is a model directory (containing a metagraph and a checkpoint file)
+    #  or if it is a protobuf file with a frozen graph
+    model_exp = os.path.expanduser(model)
+    if (os.path.isfile(model_exp)):
+        print('Model filename: %s' % model_exp)
+        with gfile.FastGFile(model_exp,'rb') as f:
+            graph_def = tf.GraphDef()
+            graph_def.ParseFromString(f.read())
+            tf.import_graph_def(graph_def, input_map=input_map, name='')
+    else:
+        print('Model directory: %s' % model_exp)
+        meta_file, ckpt_file = get_model_filenames(model_exp)
 
+        print('Metagraph file: %s' % meta_file)
+        print('Checkpoint file: %s' % ckpt_file)
+
+        saver = tf.train.import_meta_graph(os.path.join(model_exp, meta_file), input_map=input_map)
+        saver.restore(tf.get_default_session(), os.path.join(model_exp, ckpt_file))
+
+def prewhiten(x):
+    mean = np.mean(x)
+    std = np.std(x)
+    std_adj = np.maximum(std, 1.0/np.sqrt(x.size))
+    y = np.multiply(np.subtract(x, mean), 1/std_adj)
+    return y
 
 if __name__=='__main__':
     main()

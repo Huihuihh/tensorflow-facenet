@@ -7,7 +7,6 @@ import sys
 import os
 import copy
 import argparse
-import facenet
 import align.detect_face
 
 def main(args):
@@ -85,12 +84,17 @@ def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction):
 
         # 根据cropped位置对原图resize，并对新得的aligned进行白化预处理
         aligned = misc.imresize(cropped, (image_size, image_size), interp='bilinear')
-        prewhitened = facenet.prewhiten(aligned)
+        prewhitened = prewhiten(aligned)
         img_list.append(prewhitened)
     images = np.stack(img_list)
     return images
 
-
+def prewhiten(x):
+    mean = np.mean(x)
+    std = np.std(x)
+    std_adj = np.maximum(std, 1.0/np.sqrt(x.size))
+    y = np.multiply(np.subtract(x, mean), 1/std_adj)
+    return y
 
 def parse_arguments(argv):
     parser=argparse.ArgumentParser()

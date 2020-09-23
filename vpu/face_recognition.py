@@ -4,13 +4,13 @@ from __future__ import print_function
 
 import cv2
 from scipy import misc
+from scipy.spatial import distance
 import tensorflow as tf
 import numpy as np
 import sys
 import os
 import copy
 import argparse
-import facenet
 import align.detect_face
 import random
 
@@ -40,7 +40,7 @@ def main():
             out_blob = next(iter(net.outputs))
             net.batch_size = 1
             n, c, h, w = net.inputs[input_blob].shape
-            exec_net = ie.load_network(network=net, device_name='MYRIAD')
+            exec_net = ie.load_network(network=net, device_name='CPU')
 
             image=[]
             nrof_images=0
@@ -51,7 +51,7 @@ def main():
             for i in os.listdir(emb_dir):
                 all_obj.append(i)
                 img = misc.imread(os.path.join(emb_dir,i), mode='RGB')
-                prewhitened = facenet.prewhiten(img)
+                prewhitened = prewhiten(img)
                 image.append(prewhitened)
                 nrof_images=nrof_images+1
 
@@ -63,15 +63,14 @@ def main():
                 compare = exec_net.infer(inputs={input_blob: known_image})[out_blob]
                 compare_embs.append(compare)
             compare_emb=np.vstack(compare_embs)
-            print(np.array(compare_emb).shape)
             compare_num=len(compare_emb)
 
             #开启ip摄像头
             #video="http://admin:admin@192.168.0.107:8081/"   #此处@后的ipv4 地址需要修改为自己的地址
             # 参数为0表示打开内置摄像头，参数是视频文件路径则打开视频
             #capture =cv2.VideoCapture(video)
-            capture =cv2.VideoCapture('/home/awcloud/Desktop/wangfanglian.mp4')
-            #capture =cv2.VideoCapture(0)
+            #capture =cv2.VideoCapture('/home/awcloud/Desktop/najing.mp4')
+            capture =cv2.VideoCapture(0)
             cv2.namedWindow("camera",1)
             timer=0
             while True:
@@ -89,7 +88,6 @@ def main():
                     if(mark):
                         crop_image = np.ndarray(shape=(n, c, h, w))
                         emb = exec_net.infer(inputs={input_blob: crop_image})[out_blob]
-                        print(emb)
                         temp_num=len(emb)
 
                         fin_obj=[]
@@ -102,12 +100,10 @@ def main():
                                 dist = np.sqrt(np.sum(np.square(np.subtract(emb[i,:], compare_emb[j,:]))))
                                 dist_list.append(dist)
                             min_value=min(dist_list)
-                            print(dist_list)
                             if(min_value>0.65):
                                 fin_obj.append('unknow')
                             else:
                                 fin_obj.append(all_obj[dist_list.index(min_value)])    
-
 
                         # 在frame上绘制边框和文字
                         for rec_position in range(temp_num):                        
@@ -143,16 +139,10 @@ def main():
             capture.release()
             cv2.destroyWindow("camera")
   
-
-
-        # When everything is done, release the capture
-
-
 # 创建load_and_align_data网络
 print('Creating networks and loading parameters')
 with tf.Graph().as_default():
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=1.0)
-    sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, log_device_placement=False))
+    sess = tf.Session()
     with sess.as_default():
         pnet, rnet, onet = align.detect_face.create_mtcnn(sess, None)
 
@@ -192,7 +182,7 @@ def load_and_align_data(img, image_size, margin):
     for i in range(len(bounding_boxes)):
         temp_crop=img[det[i,1]:det[i,3],det[i,0]:det[i,2],:]
         aligned=misc.imresize(temp_crop, (image_size, image_size), interp='bilinear')
-        prewhitened = facenet.prewhiten(aligned)
+        prewhitened = prewhiten(aligned)
         crop.append(prewhitened)
 
     # np.stack 将crop由一维list变为二维
@@ -200,6 +190,12 @@ def load_and_align_data(img, image_size, margin):
 
     return 1,det,crop_image
 
+def prewhiten(x):
+    mean = np.mean(x)
+    std = np.std(x)
+    std_adj = np.maximum(std, 1.0/np.sqrt(x.size))
+    y = np.multiply(np.subtract(x, mean), 1/std_adj)
+    return y
 
 if __name__=='__main__':
     main()
