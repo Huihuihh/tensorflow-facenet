@@ -32,7 +32,11 @@ def main():
             # Load the model 
             # 这里要改为自己的模型位置
             model='models/facenet.pb'
-            load_model(model)
+            model_exp = os.path.expanduser(model)
+            with gfile.FastGFile(model_exp,'rb') as f:
+                graph_def = tf.GraphDef()
+                graph_def.ParseFromString(f.read())
+                tf.import_graph_def(graph_def, name='')
 
             # Get input and output tensors
             images_placeholder = tf.get_default_graph().get_tensor_by_name("input:0")
@@ -44,7 +48,7 @@ def main():
             nrof_images=0
 
             # 这里要改为自己emb_img文件夹的位置
-            emb_dir='/home/awcloud/Desktop/emb_img'
+            emb_dir='emb_img/'
             all_obj=[]
             for i in os.listdir(emb_dir):
                 all_obj.append(i)
@@ -187,26 +191,6 @@ def load_and_align_data(img, image_size, margin):
     crop_image=np.stack(crop)  
 
     return 1,det,crop_image
-
-def load_model(model, input_map=None):
-    # Check if the model is a model directory (containing a metagraph and a checkpoint file)
-    #  or if it is a protobuf file with a frozen graph
-    model_exp = os.path.expanduser(model)
-    if (os.path.isfile(model_exp)):
-        print('Model filename: %s' % model_exp)
-        with gfile.FastGFile(model_exp,'rb') as f:
-            graph_def = tf.GraphDef()
-            graph_def.ParseFromString(f.read())
-            tf.import_graph_def(graph_def, input_map=input_map, name='')
-    else:
-        print('Model directory: %s' % model_exp)
-        meta_file, ckpt_file = get_model_filenames(model_exp)
-
-        print('Metagraph file: %s' % meta_file)
-        print('Checkpoint file: %s' % ckpt_file)
-
-        saver = tf.train.import_meta_graph(os.path.join(model_exp, meta_file), input_map=input_map)
-        saver.restore(tf.get_default_session(), os.path.join(model_exp, ckpt_file))
 
 def prewhiten(x):
     mean = np.mean(x)
