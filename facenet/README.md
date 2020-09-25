@@ -1,75 +1,35 @@
-## 制作镜像
+# 训练
 
-* 制作 CPU 镜像
+## 模型初体验
 
-```
-# docker build --compress -t facenet:1.0-cpu -f Dockerfile.cpu .
-
-```
-
-* 制作 GPU 镜像
-
-```
-# docker build --compress -t facenet:1.0-gpu -f Dockerfile.gpu .
-```
-
-## 训练
-
-### CPU 训练示例
-
-> CODE_PATH: facenet 目录存放路径（例如：/root/data/code）
-> TRAIN_LOG_DIR：模型训练日志输出路径（例如：/root/data/log）
-> DATASET_PATH：训练用数据集路径（例如：/root/dataset/casia_maxpy_mtcnnpy_182）
-> LFW_DATASET_DIR：训练用验证数据集路径（例如：/root/dataset/lfw_mtcnnalign_160）
-> LEARNING_RATE：学习率设置（例如：-1）
-> MAX_NROF_EPOCHS：训练迭代次数（例如：1）
-> EPOCH_SIZE：每次迭代 batch 的数量（例如：1）
-
-```
-# cp train-cpu.sh.example train-cpu.sh
-# chmod a+x train-cpu.sh
-# export CODE_PATH=<CODE_PATH>
-# export TRAIN_LOG_DIR=<TRAIN_LOG_DIR>
-# export DATASET_PATH=<DATASET_PATH>
-# export LFW_DATASET_DIR=<LFW_DATASET_DIR>
-# export LEARNING_RATE=<LEARNING_RATE>
-# export MAX_NROF_EPOCHS=<MAX_NROF_EPOCHS>
-# export EPOCH_SIZE=<EPOCH_SIZE>
-# ./train-cpu.sh
-```
-
-### GPU 训练示例
-
-> CODE_PATH: facenet 目录存放路径（例如：/root/data/code）
-> TRAIN_LOG_DIR：模型训练日志输出路径（例如：/root/data/log）
-> DATASET_PATH：训练用数据集路径（例如：/root/dataset/casia_maxpy_mtcnnpy_182）
-> LFW_DATASET_DIR：训练用验证数据集路径（例如：/root/dataset/lfw_mtcnnalign_160）
-> LEARNING_RATE：学习率设置（例如：-1）
-> MAX_NROF_EPOCHS：训练迭代次数（例如：1）
-> EPOCH_SIZE：每次迭代 batch 的数量（例如：1）
-
-```
-# cp train-gpu.sh.example train-gpu.sh
-# chmod a+x train-cpu.sh
-# export CODE_PATH=<CODE_PATH>
-# export TRAIN_LOG_DIR=<TRAIN_LOG_DIR>
-# export DATASET_PATH=<DATASET_PATH>
-# export LFW_DATASET_DIR=<LFW_DATASET_DIR>
-# export LEARNING_RATE=<LEARNING_RATE>
-# export MAX_NROF_EPOCHS=<MAX_NROF_EPOCHS>
-# export EPOCH_SIZE=<EPOCH_SIZE>
-# ./train-gpu.sh
-```
-
-> 如果想要控制训练使用的GPU资源量，可以修改 train-gpu.sh 中的 --gpu_memory_fraction 指定使用的 GPU 资源的百分比
+`python3 src/run_test.py`
 
 
-## 数据集裁剪
+## 模型训练
 
-从源数据集(<SOURCE_DIR>)中，提取部分数据，保存到目标数据集(<DESTINATION_DIR>)中，制作成裁剪后的新的数据集
-
-> 想要修改裁剪比例，可以修改脚本中的 CROP_PERCENT 变量，该变量控制 ***裁减掉*** 的百分比，默认裁剪掉 75%，即保留 25%（新的数据集包含源数据集的25%的数据）。
-
-```
-# crop-dataset_CASIA-maxpy-clean.sh <SOURCE_DIR> <DESTINATION_DIR>
+```python
+python3 src/train_softmax.py \
+--logs_base_dir /root/data/log \
+--models_base_dir /root/data/output/model/ \
+--data_dir /root/dataset/casia-maxpy-mtcnnpy/casia_maxpy_mtcnnpy_182/ \
+--image_size 160 \
+--model_def models.inception_resnet_v1 \
+--lfw_dir /root/dataset/lfw-mtcnnalign/lfw_mtcnnalign_160/ \
+--optimizer ADAM \
+--learning_rate -1 \
+--max_nrof_epochs 1 \
+--keep_probability 0.8 \
+--random_crop \
+--random_flip \
+--use_fixed_image_standardization \
+--learning_rate_schedule_file data/learning_rate_schedule_classifier_casia.txt \
+--weight_decay 5e-4 \
+--embedding_size 512 \
+--lfw_distance_metric 1 \
+--lfw_use_flipped_images \
+--lfw_subtract_mean \
+--validation_set_split_ratio 0.05 \
+--prelogits_norm_loss_factor 5e-4 \
+--epoch_size 1 \
+--gpu_memory_fraction 0.8
 ```

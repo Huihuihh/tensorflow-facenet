@@ -27,15 +27,15 @@ from sklearn.externals import joblib
 from openvino.inference_engine import IENetwork, IECore
 
 
-def main():      
+def main(args):
 
     with tf.Graph().as_default():
         with tf.Session() as sess:
             # 裁剪图片
-            dection()
+            dection(args)
             # Load the model 
             # 这里要改为自己的模型位置
-            model='/home/awcloud/Desktop/model/20180402-114759.pb'
+            model=args.model
             model_exp = os.path.expanduser(model)
             with gfile.FastGFile(model_exp,'rb') as f:
                 graph_def = tf.GraphDef()
@@ -51,7 +51,6 @@ def main():
             image=[]
             nrof_images=0
 
-            # 这里要改为自己emb_img文件夹的位置
             emb_dir='emb_img/'
             all_obj=[]
             for i in os.listdir(emb_dir):
@@ -66,11 +65,9 @@ def main():
             compare_emb = sess.run(embeddings, feed_dict=feed_dict) 
             compare_num=len(compare_emb)
 
-            detect_image='/home/awcloud/Desktop/timg.jpg'
-
-            frame = cv2.imread(detect_image) 
+            frame = cv2.imread(args.predict) 
             # 获取 判断标识 bounding_box crop_image
-            mark,bounding_box,crop_image=detect_load_and_align_data(detect_image,160,44)
+            mark,bounding_box,crop_image=detect_load_and_align_data(frame,160,44)
             if(mark):
                 feed_dict = { images_placeholder: crop_image, phase_train_placeholder:False }
                 emb = sess.run(embeddings, feed_dict=feed_dict)
@@ -106,7 +103,7 @@ def main():
                     lineType = 2)
 
             # 保存一张图像
-            cv2.imwrite("/home/awcloud/Desktop/detect_img/test.jpg",frame)
+            cv2.imwrite(args.output, frame)
             
 
 # 创建load_and_align_data网络
@@ -125,7 +122,7 @@ def detect_load_and_align_data(img, image_size, margin):
     threshold = [ 0.6, 0.7, 0.7 ]  # three steps's threshold
     factor = 0.709 # scale factor
 
-    img = misc.imread(img, mode='RGB')
+    #img = misc.imread(img, mode='RGB')
     img_size = np.asarray(img.shape)[0:2]
 
     # bounding_boxes shape:(1,5)  type:np.ndarray
@@ -138,10 +135,6 @@ def detect_load_and_align_data(img, image_size, margin):
     # 从数组的形状中删除单维度条目，即把shape中为1的维度去掉
     #det = np.squeeze(bounding_boxes[:,0:4])
     det=bounding_boxes
-
-    print('det shape type')
-    print(det.shape)
-    print(type(det))
 
     det[:,0] = np.maximum(det[:,0]-margin/2, 0)
     det[:,1] = np.maximum(det[:,1]-margin/2, 0)
@@ -161,9 +154,14 @@ def detect_load_and_align_data(img, image_size, margin):
 
     return 1,det,crop_image
 
-def dection():
+def dection(args):
     # 将目标图片文件夹下的图片地址append进list,传入load_and_align_data(),对图片进行切割（因为其图片参数为list）
     img_dir='test_img/'
+
+    used_name = args.input
+    new_name = img_dir + args.name + '.jpg'
+    os.rename(used_name,new_name)
+
     img_path_set=[]
     for file in os.listdir(img_dir):
         single_img=os.path.join(img_dir,file)
@@ -188,13 +186,13 @@ def dection():
     if(os.path.exists(emb_dir)==False):
         os.mkdir(emb_dir)
 
-    a = 0
+    b = 0
     filename_list = os.listdir(save_dir)
     for i in filename_list:
-        used_name = save_dir + filename_list[a]
-        new_name = emb_dir + filename_list[a].strip().split('.')[0]
+        used_name = save_dir + filename_list[b]
+        new_name = emb_dir + filename_list[b].strip().split('.')[0]
         os.rename(used_name,new_name)
-        a += 1
+        b += 1
 
     os.rmdir(save_dir)
 
@@ -237,5 +235,24 @@ def prewhiten(x):
     y = np.multiply(np.subtract(x, mean), 1/std_adj)
     return y
 
+def parse_arguments(argv):
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--model', type=str, default='models/facenet.pb', help='location for model file (*.pb)',
+                        required=True)
+
+    parser.add_argument('--name', type=str, default='YaoMing', help='Name of the predict picture')
+
+    parser.add_argument('--input', type=str, default='test_img/yaoming.jpg',
+                        help='File path of input image', required=True)
+
+    parser.add_argument('--predict', type=str, default='test_img/yaoming.jpg', help='predict picture')
+
+    parser.add_argument('--output', type=str, default='result.jpg',
+                        help='File path of output image', required=True)
+
+    return parser.parse_args(argv)
+
+
 if __name__=='__main__':
-    main()
+    main(parse_arguments(sys.argv[1:]))
