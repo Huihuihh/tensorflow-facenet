@@ -11,8 +11,6 @@ import sys
 import os
 import copy
 import argparse
-import facenet
-import align.detect_face
 import random
 from time import time
 
@@ -50,7 +48,7 @@ def main():
     for i in os.listdir(emb_dir):
         all_obj.append(i)
         img = misc.imread(os.path.join(emb_dir,i), mode='RGB')
-        prewhitened = facenet.prewhiten(img)
+        prewhitened = prewhiten(img)
         image.append(prewhitened)
         nrof_images=nrof_images+1
 
@@ -155,7 +153,7 @@ def load_and_align_data(img, image_size, margin):
 
     crop=[]
     aligned=misc.imresize(cropped, (image_size, image_size), interp='bilinear')
-    prewhitened = facenet.prewhiten(aligned)
+    prewhitened = prewhiten(aligned)
     crop.append(prewhitened)
 
     # np.stack 将crop由一维list变为二维
@@ -163,6 +161,12 @@ def load_and_align_data(img, image_size, margin):
 
     return 1,crop_image,faces
 
+def prewhiten(x):
+    mean = np.mean(x)
+    std = np.std(x)
+    std_adj = np.maximum(std, 1.0/np.sqrt(x.size))
+    y = np.multiply(np.subtract(x, mean), 1/std_adj)
+    return y
 
 if __name__=='__main__':
     main()
