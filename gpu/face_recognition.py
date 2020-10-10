@@ -11,9 +11,9 @@ import random
 
 from tkinter import *
 from PIL import Image, ImageTk
+from tensorflow.python.platform import gfile
 
 import sklearn
-from openvino.inference_engine import IENetwork, IECore
 
 faceCascade = cv2.CascadeClassifier('Cascades/haarcascade_frontalface_default.xml')
 
