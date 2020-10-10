@@ -46,6 +46,10 @@ def main():
             # 获取 判断标识 bounding_box crop_image
             mark,crop_image,faces=load_and_align_data(rgb_frame,160)
 
+            img_dir='test_img'
+            if(os.path.exists(img_dir)==False):
+                os.mkdir(img_dir)
+
             key = cv2.waitKey(3)
             if key == 119:
                 cv2.imwrite("test_img/test.jpg", frame)
@@ -53,6 +57,9 @@ def main():
                 dection()
 
             emb_dir='emb_img/'
+            if(os.path.exists(emb_dir)==False):
+                os.mkdir(emb_dir)
+
             if not os.listdir(emb_dir):
                 for (x,y,h,w) in faces:
                     cv2.rectangle(frame,(x,y),(x+w,y+h),(255,0,0),2)
@@ -233,6 +240,8 @@ def dection():
         new_name = emb_dir + filename_list[a].strip().split('.')[0]
         os.rename(used_name,new_name)
         a += 1
+
+    os.rmdir(save_dir)
 
 def cut_load_and_align_data(image_paths, image_size):
     tmp_image_paths=copy.copy(image_paths)
